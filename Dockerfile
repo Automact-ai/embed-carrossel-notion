@@ -1,81 +1,55 @@
-# Multi-stage build para otimizar o tamanho da imagem
-FROM node:18-alpine AS base
+# Dockerfile simplificado para Easypanel
+FROM node:18-alpine
 
-# Instalar dependências necessárias
+# Instalar dependências do sistema
 RUN apk add --no-cache libc6-compat
 
-# Stage 1: Construir o admin (Next.js)
-FROM base AS admin-builder
-WORKDIR /app
-
-# Copiar arquivos de configuração do workspace
-COPY package.json yarn.lock ./
-COPY apps/admin/package.json ./apps/admin/
-
-# Instalar dependências
-RUN yarn install --frozen-lockfile
-
-# Copiar código do admin
-COPY apps/admin ./apps/admin
-
-# Build do admin
-WORKDIR /app/apps/admin
-RUN yarn build
-
-# Stage 2: Preparar o servidor
-FROM base AS server-deps
-WORKDIR /app
-
-# Copiar arquivos de configuração
-COPY package.json yarn.lock ./
-COPY server/package.json ./server/
-
-# Instalar apenas dependências de produção
-RUN yarn install --frozen-lockfile --production
-
-# Stage 3: Imagem final de produção
-FROM base AS runner
+# Definir diretório de trabalho
 WORKDIR /app
 
 # Criar usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nodejs
 
-# Copiar dependências do servidor
-COPY --from=server-deps --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=server-deps --chown=nodejs:nodejs /app/server/node_modules ./server/node_modules
+# Copiar e instalar dependências do admin
+COPY apps/admin/package.json ./apps/admin/
+WORKDIR /app/apps/admin
+RUN yarn install --frozen-lockfile
+
+# Copiar código do admin e fazer build
+COPY apps/admin ./
+RUN yarn build
+
+# Voltar para raiz e configurar servidor
+WORKDIR /app
+COPY server/package.json ./server/
+WORKDIR /app/server
+RUN yarn install --frozen-lockfile --production
 
 # Copiar código do servidor
-COPY --chown=nodejs:nodejs server/ ./server/
-
-# Copiar build do admin (se necessário para servir estático)
-COPY --from=admin-builder --chown=nodejs:nodejs /app/apps/admin/.next ./apps/admin/.next
-COPY --from=admin-builder --chown=nodejs:nodejs /app/apps/admin/public ./apps/admin/public
-COPY --from=admin-builder --chown=nodejs:nodejs /app/apps/admin/package.json ./apps/admin/package.json
-
-# Criar diretórios necessários
-RUN mkdir -p ./server/uploads && chown -R nodejs:nodejs ./server/uploads
+COPY server/ ./
 
 # Gerar cliente Prisma
-WORKDIR /app/server
 RUN npx prisma generate
 
-# Criar volume para banco de dados SQLite
-RUN mkdir -p ./prisma && chown -R nodejs:nodejs ./prisma
+# Criar diretórios necessários
+RUN mkdir -p ./uploads ./prisma
+RUN chown -R nodejs:nodejs ./uploads ./prisma
 
 # Mudar para usuário não-root
 USER nodejs
 
-# Expor porta do servidor
+# Expor porta
 EXPOSE 3001
 
-# Variáveis de ambiente padrão
+# Variáveis de ambiente
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV DATABASE_URL="file:./prisma/dev.db"
 
-# Copiar scripts de inicialização
-COPY --chown=nodejs:nodejs server/scripts/ ./server/scripts/
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-# Comando para iniciar com inicialização do banco
-CMD ["node", "scripts/start.js"] 
+# Comando de inicialização
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss || true && node src/index.js"] 

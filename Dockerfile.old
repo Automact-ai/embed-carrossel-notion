@@ -1,0 +1,79 @@
+# Multi-stage build para otimizar o tamanho da imagem
+FROM node:18-alpine AS base
+
+# Instalar dependências necessárias
+RUN apk add --no-cache libc6-compat
+
+# Stage 1: Construir o admin (Next.js)
+FROM base AS admin-builder
+WORKDIR /app
+
+# Copiar arquivos de configuração do workspace
+COPY package.json yarn.lock ./
+COPY apps/admin/package.json ./apps/admin/
+
+# Instalar dependências
+RUN yarn install --frozen-lockfile
+
+# Copiar código do admin
+COPY apps/admin ./apps/admin
+
+# Build do admin
+WORKDIR /app/apps/admin
+RUN yarn build
+
+# Stage 2: Preparar o servidor
+FROM base AS server-deps
+WORKDIR /app/server
+
+# Copiar arquivos de configuração do servidor
+COPY server/package.json ./
+
+# Instalar apenas dependências de produção do servidor
+RUN yarn install --frozen-lockfile --production
+
+# Stage 3: Imagem final de produção
+FROM base AS runner
+WORKDIR /app
+
+# Criar usuário não-root para segurança
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nodejs
+
+# Copiar dependências do servidor
+COPY --from=server-deps --chown=nodejs:nodejs /app/server/node_modules ./server/node_modules
+
+# Copiar código do servidor
+COPY --chown=nodejs:nodejs server/ ./server/
+
+# Copiar build do admin (se necessário para servir estático)
+COPY --from=admin-builder --chown=nodejs:nodejs /app/apps/admin/.next ./apps/admin/.next
+COPY --from=admin-builder --chown=nodejs:nodejs /app/apps/admin/public ./apps/admin/public
+COPY --from=admin-builder --chown=nodejs:nodejs /app/apps/admin/package.json ./apps/admin/package.json
+
+# Criar diretórios necessários
+RUN mkdir -p ./server/uploads && chown -R nodejs:nodejs ./server/uploads
+
+# Gerar cliente Prisma
+WORKDIR /app/server
+RUN npx prisma generate
+
+# Criar volume para banco de dados SQLite
+RUN mkdir -p ./prisma && chown -R nodejs:nodejs ./prisma
+
+# Mudar para usuário não-root
+USER nodejs
+
+# Expor porta do servidor
+EXPOSE 3001
+
+# Variáveis de ambiente padrão
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV DATABASE_URL="file:./prisma/dev.db"
+
+# Copiar scripts de inicialização
+COPY --chown=nodejs:nodejs server/scripts/ ./server/scripts/
+
+# Comando para iniciar com inicialização do banco
+CMD ["node", "scripts/start.js"] 
