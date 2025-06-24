@@ -29,11 +29,11 @@ WORKDIR /app/server
 # Instalar dependências do servidor
 RUN yarn install --frozen-lockfile --production
 
-# Gerar cliente Prisma
-RUN npx prisma generate
-
 # Copiar código do servidor
 COPY server/ ./
+
+# Gerar cliente Prisma APÓS copiar schema.prisma
+RUN npx prisma generate
 
 # Criar usuário não-root
 RUN groupadd --system --gid 1001 nodejs && \
