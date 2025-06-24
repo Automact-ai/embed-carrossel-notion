@@ -11,7 +11,6 @@ WORKDIR /app
 # Copiar arquivos de configuração do workspace
 COPY package.json yarn.lock ./
 COPY apps/admin/package.json ./apps/admin/
-COPY packages/ ./packages/
 
 # Instalar dependências
 RUN yarn install --frozen-lockfile
@@ -30,7 +29,6 @@ WORKDIR /app
 # Copiar arquivos de configuração
 COPY package.json yarn.lock ./
 COPY server/package.json ./server/
-COPY packages/ ./packages/
 
 # Instalar apenas dependências de produção
 RUN yarn install --frozen-lockfile --production

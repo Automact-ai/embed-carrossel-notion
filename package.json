@@ -5,18 +5,15 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "packages/*",
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"yarn dev:server\" \"yarn dev:admin\" \"yarn dev:widget\"",
+    "dev": "concurrently \"yarn dev:server\" \"yarn dev:admin\"",
     "dev:server": "cd server && yarn dev",
     "dev:admin": "cd apps/admin && yarn dev",
-    "dev:widget": "cd apps/widget && yarn dev",
-    "build": "yarn build:widget && yarn build:admin && yarn build:server",
+    "build": "yarn build:admin && yarn build:server",
     "build:server": "cd server && yarn build",
     "build:admin": "cd apps/admin && yarn build",
-    "build:widget": "cd apps/widget && yarn build",
     "start": "cd server && yarn start",
     "db:push": "cd server && yarn db:push",
     "db:studio": "cd server && yarn db:studio"
