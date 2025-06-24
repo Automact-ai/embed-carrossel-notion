@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Carousel {
+  id          String   @id @default(cuid())
+  title       String
+  caption     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  images      CarouselImage[]
+  views       CarouselView[]
+  
+  @@map("carousels")
+}
+
+model CarouselImage {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  order       Int
+  createdAt   DateTime @default(now())
+  
+  carouselId  String
+  carousel    Carousel @relation(fields: [carouselId], references: [id], onDelete: Cascade)
+  
+  @@map("carousel_images")
+}
+
+model CarouselView {
+  id          String   @id @default(cuid())
+  ipAddress   String?
+  userAgent   String?
+  referer     String?
+  createdAt   DateTime @default(now())
+  
+  carouselId  String
+  carousel    Carousel @relation(fields: [carouselId], references: [id], onDelete: Cascade)
+  
+  @@map("carousel_views")
+} 

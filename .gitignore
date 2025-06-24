@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production builds
+.next/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Database
+*.db
+*.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Uploads
+uploads/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel 
